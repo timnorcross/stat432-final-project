@@ -7,3 +7,11 @@ date: "`r Sys.Date()`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 ```
+
+```{r}
+library(tidyverse)
+dim(read_csv("mlb_statcast_2026_reduced.csv"))
+```
+-dataset documentation: <https://baseballsavant.mlb.com/csv-docs>
+-mlb_statcast_2026 contains the 22610 pitches from the first week of games.
+
