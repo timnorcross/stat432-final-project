@@ -10,8 +10,8 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ```{r}
 library(tidyverse)
-dim(read_csv("mlb_statcast_2026_reduced.csv"))
+dim(read_csv("mlb_swings_2026_reduced.csv"))
 ```
 -dataset documentation: <https://baseballsavant.mlb.com/csv-docs>
--mlb_statcast_2026 contains the 22610 pitches from the first week of games.
+-mlb_swings_2026_reduced contains the 23200 swings from the first two week of games.
 
