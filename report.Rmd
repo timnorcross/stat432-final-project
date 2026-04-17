@@ -13,5 +13,5 @@ library(tidyverse)
 dim(read_csv("mlb_swings_2026_reduced.csv"))
 ```
 -dataset documentation: <https://baseballsavant.mlb.com/csv-docs>
--mlb_swings_2026_reduced contains the 23200 swings from the first two week of games.
+-mlb_swings_2026_reduced contains the first 30,000 complete swing observations of the 2026 MLB season. 
 

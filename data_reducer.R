@@ -3,18 +3,25 @@ swings = read_csv("mlb_swings_2026.csv")
 
 
 swings = swings |>
-  mutate(hard_hit = if_else(launch_speed >= 95, 1, 0)) |>
-  # remove deprecated / NA columns
+  mutate(hard_hit = ifelse(launch_speed >= 95, 1, 0),
+         hard_hit = replace_na(hard_hit, 0),
+         hard_hit = as.factor(hard_hit),
+         zone = as.factor(zone)) |>
+  drop_na(c(pitch_type, release_spin_rate)) |>
   select(where(~!all(is.na(.)))) |>
-  # remove irrelevant columns
-  select(-c(game_date,
+  select(-c(launch_speed,
+            pitch_type,
+            game_date,
             player_name,
             batter,
             pitcher,
+            events,
+            description,
             des,
             game_type,
             home_team,
             away_team,
+            type,
             hit_location,
             bb_type,
             game_year,
@@ -26,18 +33,51 @@ swings = swings |>
             inning_topbot,
             hc_x,
             hc_y,
+            sz_top,
+            sz_bot,
             hit_distance_sc,
             launch_angle,
             game_pk,
             fielder_2:fielder_9,
-            estimated_ba_using_speedangle:launch_speed_angle,
-            home_score:post_fld_score,
+            estimated_ba_using_speedangle,
+            estimated_woba_using_speedangle,
+            woba_value,
+            woba_denom,
+            babip_value,
+            iso_value,
+            launch_speed_angle,
+            home_score,
+            away_score,
+            bat_score,
+            fld_score,
+            post_away_score,
+            post_home_score,
+            post_bat_score,
+            post_fld_score,
             delta_home_win_exp,
             delta_run_exp,
-            estimated_slg_using_speedangle:age_bat_legacy,
+            estimated_slg_using_speedangle,
+            delta_pitcher_run_exp,
+            hyper_speed,
+            home_score_diff,
+            bat_score_diff,
+            home_win_exp,
+            bat_win_exp,
+            age_pit_legacy,
+            age_bat_legacy,
             pitcher_days_since_prev_game,
             batter_days_since_prev_game,
-            pitcher_days_until_next_game))
+            pitcher_days_until_next_game,
+            batter_days_until_next_game,
+            api_break_z_with_gravity,
+            api_break_x_arm,
+            api_break_x_batter_in,
+            arm_angle,
+            intercept_ball_minus_batter_pos_x_inches,
+            intercept_ball_minus_batter_pos_y_inches)) |>
+  select(hard_hit, everything()) |>
+  drop_na() |>
+  tail(30000)
 
 write_csv(swings, "mlb_swings_2026_reduced.csv")
 
