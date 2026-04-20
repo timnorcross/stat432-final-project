@@ -1,0 +1,45 @@
+---
+title: 
+output: pdf_document
+date: "2026-04-17"
+---
+
+## Tree-based methods
+
+```{r cache=TRUE, include=FALSE}
+library(tidyverse)
+
+swings = read_csv("~/Desktop/stat432/stat432-final-project/mlb_swings_2026_reduced.csv")
+```
+
+We can apply tree-based methods to our goal of classifying observations as *hard hits* (k = 1) or *not* (k = 0). Starting with a classification tree via the `rpart` function:
+
+\begin{center}
+\texttt{rpart(hard\_hit \textasciitilde{} ., data = swings, method = "class")}
+\end{center}
+
+
+```{r, include=FALSE}
+library(rpart)
+swing_rpart = rpart(hard_hit ~ ., data = swings, method = "class")
+```
+The resulting summary:
+```{r}
+library(rpart.plot)
+summary(swing_rpart)
+```
+
+The summary shows that the tree returned is just a single node with predicted class of 0. The expected classification error is then equal to the probability of k=1 in the data, about 16.3%. This means that none of the variables could strongly dictate k=1 or k=0 by themselves, since `rpart()` was not able to find any splits that improved the overall purity of the tree, or at least not enough to overcome the complexity parameter penalization. We can try to force the construction of a more complex tree by lowering the complexity parameter which previously was set to the default 0.01, since the tree should grow as the complexity parameter goes to 0. Calling `rpart()` again with a significantly small cp and examining the summary shows that a cp of 0.0007156001 is sufficiently small to grow the tree. However the tree does not grow incrementally like we would hope.
+```{r}
+swing_test = rpart(hard_hit ~ ., data = swings, method = "class", cp = 0.0001)
+
+head(swing_test$cptable, 2)
+```
+Instead, that small value that is required to find a worthwhile split to start growing the tree also allows for 86 more splits. This explosion in the tree size again shows the failure of any of the variables to stand out above a baseline assumption of "no" when it comes to classifying hard hit observations. From the output, the cross-validation error calculated by `rpart` under `xerror` increases from the baseline branch-less classifier. This holds true in the full cp table; the estimated testing error increases monotonically with the number of splits. Clearly a basic decision tree fails to accomplish our classification task since the  leaves, or combinations of predictor relationships down the branches, it finds are not accurate to cross validation "testing" data. Is this purely a fault of the weak recursive binary splitting algorithm being unable to identify complex relationships in the data? With so many combinations of different predictors, perhaps 4891 k=1 is relatively few and insufficient?...
+
+TO-DO:  
+Try on "contact" subset of data where launch speed > 0?.  
+Random forest.  
+Boosting?
+
+

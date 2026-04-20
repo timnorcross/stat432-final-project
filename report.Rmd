@@ -8,10 +8,8 @@ date: "`r Sys.Date()`"
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r}
-library(tidyverse)
-dim(read_csv("mlb_swings_2026_reduced.csv"))
-```
 -dataset documentation: <https://baseballsavant.mlb.com/csv-docs>
 -mlb_swings_2026_reduced contains the first 30,000 complete swing observations of the 2026 MLB season. 
 
+```{r, child = "tree-methods-timothy-WIP.Rmd"}
+```
