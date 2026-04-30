@@ -1,0 +1,37 @@
+---
+title:
+output: pdf_document
+date: "2026-04-30"
+---
+\pagenumbering{gobble}
+## Summary of the dataset
+The dataset contains information relating to the first 30,000 swing observations from the 2026 Major League Baseball season, and was imported via the [MLB Statcast Search function](https://baseballsavant.mlb.com/statcast_search) from Baseball Savant. Here, Statcast refers to the advanced camera and radar tracking system implemented in MLB ballparks since 2015 to collect data on many parts of the game. Savant offers the data in a per-pitch format, where each observation represents a single pitch, the simplest unit of play in baseball. For the purposes of our classification task, this project works with the subset of "swing observations", or pitches that elicited a swing from the batter. The full dataset contains 118 variables, however we remove many deprecated, missing, redundant, or otherwise obviously irrelevant variables. Thus, the cleaned data only contain 38 variables that could feasibly affect our *hard_hit* variable of interest--i.e. *how* the pitch was thrown (velocity, release point, etc.), *where* the pitch was thrown (x-z coordinates), *how the ball traveled* (velocity, acceleration, spin, etc.). Several other possibly relevant variables such as the *pitcher number* of the at bat or *at bat number* of the pitcher were also included. Full documentation of the Statcast variables can be found [here](https://baseballsavant.mlb.com/csv-docs), via Savant.  
+
+Below is a summary of our categorical *hard_hit* response variable and several others may be useful in classification.
+
+```{r, cache=TRUE, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(knitr)
+swings = read_csv("mlb_swings_2026_reduced.csv")
+
+
+summary(swings |>
+          select(hard_hit, release_speed, bat_speed, release_spin_rate)) |>
+  kable(
+        col.names = c("Hard Hit", "Release Speed", "Bat Speed", "Spin Rate"))
+```
+Just 16.3% of all observation are hard hits, so there is about a 1:5 ratio of class imbalance. Now for a peek into a possible relationship between pitch type and hard hits: 
+
+
+```{r, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(knitr)
+swings |> 
+  group_by(pitch_name) |> 
+  summarise(count = n(), 
+            hard_hit_rate = round(sum(hard_hit)/n(), 2)) |>
+  arrange(desc(count)) |>
+  kable(
+        col.names = c("Pitch Type", "Count", "Hard Hit Rate"))
+```
+Among the most commonly thrown pitch types, different types frequently vary by several percent in their resulting proportion of hard hits. This is a good sign for our analysis that *pitch type* may be able to play a role in classifying hard hits since *hard hit* appears to vary with pitch.

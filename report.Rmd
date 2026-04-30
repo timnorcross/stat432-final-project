@@ -11,5 +11,8 @@ knitr::opts_chunk$set(echo = FALSE)
 -dataset documentation: <https://baseballsavant.mlb.com/csv-docs>
 -mlb_swings_2026_reduced contains the first 30,000 complete swing observations of the 2026 MLB season. 
 
+```{r, child = "dataset-details-summary.Rmd"}
+```
+
 ```{r, child = "tree-methods-timothy.Rmd"}
 ```
