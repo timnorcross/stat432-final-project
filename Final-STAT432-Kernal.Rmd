@@ -1,0 +1,354 @@
+---
+title: "Final Project - Kernel and KNN"
+author: "Alexander Gates"
+date: "2026-04-08"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Loading in the Data
+
+```{r}
+# Loading in the mlb data
+
+swings <- read.csv("mlb_swings_2026.csv")
+View(swings)
+```
+
+# Filtering using the filter function 
+```{r}
+library(tidyverse)
+
+swings = swings |>
+  mutate(hard_hit = if_else(launch_speed >= 95, 1, 0)) |>
+  # remove deprecated / NA columns
+  select(where(~!all(is.na(.)))) |>
+  # remove irrelevant columns
+  select(-c(game_date,
+            player_name,
+            batter,
+            pitcher,
+            des,
+            game_type,
+            home_team,
+            away_team,
+            hit_location,
+            bb_type,
+            game_year,
+            on_3b,
+            on_2b,
+            on_1b,
+            outs_when_up,
+            inning,
+            inning_topbot,
+            hc_x,
+            hc_y,
+            hit_distance_sc,
+            launch_angle,
+            game_pk,
+            fielder_2:fielder_9,
+            estimated_ba_using_speedangle:launch_speed_angle,
+            home_score:post_fld_score,
+            delta_home_win_exp,
+            delta_run_exp,
+            estimated_slg_using_speedangle:age_bat_legacy,
+            pitcher_days_since_prev_game,
+            batter_days_since_prev_game,
+            pitcher_days_until_next_game))
+
+write_csv(swings, "mlb_swings_2026_reduced.csv")
+```
+The goal of this project is to classify whether a ball is a hard hit or not. A hard hit is defined as a ball with a launch speed of 95 mph or higher. We will use the `hard_hit` column as our target variable for classification. There will be two seperate analysis conducted, one of them will be using a kernel method and the other will be using KNN. For both of these methods, we will need to filter the data to just have the relevant variables for our analysis, as we will focus on just pitching related variables and the target variable (hard_hit).
+
+First we will filter the data to just have the relevant variables for our analysis, as we will focus on just pitching related variables and the target variable (hard_hit). We will use the `select` function from the `dplyr` package to select only the relevant columns from the `swings` dataset.
+
+```{r}
+# Filtering to just have pitching related variables and the target variable (hard_hit)
+swings_pitch = swings |>
+  select(pitch_type, release_speed, effective_speed,
+release_pos_x, release_pos_y, release_pos_z,
+release_extension, arm_angle,
+release_spin_rate, spin_axis,
+pfx_x, pfx_z,
+vx0, vy0, vz0, ax, ay, az,
+plate_x, plate_z, zone,
+balls, strikes, p_throws,
+sz_top, sz_bot,
+n_thruorder_pitcher, pitch_number, hard_hit)
+```
+
+Now, we will need to convert the `pitch_type` variable into a factor variable, as it is currently a character variable. We will use the `as.factor` function to convert it into a factor variable, as well as `p_throws` into a factor variable as well, since it is also a character variable. This will allow us to use these variables in our classification models.
+
+We will also remove `hard_hit` NA's from the dataset, as they can cause issues with our classification models. We will use the `na.omit` function to remove any rows with NA's from the dataset.
+
+```{r}
+# filtering out NA's and converting character variables to factors
+swings_pitch <- swings_pitch |>
+  mutate(
+    pitch_type = as.factor(pitch_type),
+    p_throws = as.factor(p_throws),
+    hard_hit = factor(hard_hit, levels = c(0, 1))
+  ) |>
+  filter(!is.na(hard_hit))|>
+  na.omit()
+
+
+
+
+```
+
+
+```{r}
+set.seed(123) # Setting a seed for reproducibility
+
+# Splitting the data into a training set and a test set
+train_index = sample(1:nrow(swings_pitch), 0.8 * nrow(swings_pitch))
+train_data = swings_pitch[train_index, ]
+test_data = swings_pitch[-train_index, ]
+```
+
+
+```{r}
+library(e1071)
+
+# Fitting an SVM model to the training data
+svm_model = svm(hard_hit ~ ., data = train_data, kernel = "radial")
+# Predicting on the test data
+svm_predictions = predict(svm_model, test_data)
+
+# Evaluating the performance of the SVM model
+svm_confusion_matrix = table(test_data$hard_hit, svm_predictions)
+svm_accuracy = sum(diag(svm_confusion_matrix)) / sum(svm_confusion_matrix)
+svm_accuracy
+
+table(svm_predictions, test_data$hard_hit)
+```
+
+
+```{r}
+library(caret)
+library(e1071)
+
+weight_values <- c(1, 2, 3, 4, 5)
+
+results <- data.frame(weight = numeric(), accuracy = numeric())
+
+for (w in weight_values) {
+  
+  weights <- ifelse(train_data$hard_hit == "1", w, 1)
+  
+  svm_model <- train(
+    hard_hit ~ .,
+    data = train_data,
+    method = "svmRadial",
+    preProcess = c("center", "scale"),
+    tuneGrid = grid,
+    trControl = trainControl(method = "cv", number = 3),
+    weights = weights
+  )
+  
+  pred <- predict(svm_model, test_data)
+  
+  acc <- sum(pred == test_data$hard_hit) / length(pred)
+  
+  results <- rbind(results, data.frame(weight = w, accuracy = acc))
+}
+
+results
+
+
+
+```
+```{r}
+ggplot(results, aes(x = weight, y = accuracy)) +
+  geom_line() +
+  geom_point(size = 3) +
+  geom_text(aes(label = round(accuracy, 3)), vjust = -0.8) +
+  ylim(0, 1) +
+  theme_minimal() +
+  labs(
+    title = "SVM Accuracy vs Class Weight (Class 1)",
+    x = "Weight for Minority Class",
+    y = "Accuracy"
+  )
+```
+
+# KNN Baseline
+```{r}
+library(caret)
+set.seed(123)
+
+knn_baseline <- train(
+  hard_hit ~ .,
+  data = train_data,
+  method = "knn",
+  preProcess = c("center", "scale"),
+  tuneGrid = expand.grid(k = 5),   # pick a reasonable default
+  trControl = trainControl(method = "none")
+)
+
+knn_baseline
+
+
+pred_base <- predict(knn_baseline, test_data)
+
+conf_mat_base <- table(test_data$hard_hit, pred_base)
+conf_mat_base
+
+accuracy_base <- sum(diag(conf_mat_base)) / sum(conf_mat_base)
+accuracy_base
+```
+
+
+# KNN Selection
+```{r}
+
+set.seed(123)
+
+knn_grid <- expand.grid(
+  k = c(3, 5, 7, 9, 11, 13, 15, 30, 50, 100)  
+)
+
+knn_model <- train(
+  hard_hit ~ .,
+  data = train_data,
+  method = "knn",
+  preProcess = c("center", "scale"),  # VERY important for KNN
+  tuneGrid = knn_grid,
+  trControl = trainControl(
+    method = "cv",
+    number = 5
+  )
+)
+
+knn_model
+plot(knn_model)
+
+pred_knn <- predict(knn_model, test_data)
+
+conf_mat_knn <- table(test_data$hard_hit, pred_knn)
+conf_mat_knn
+
+accuracy_knn <- sum(diag(conf_mat_knn)) / sum(conf_mat_knn)
+accuracy_knn
+```
+
+```{r}
+# comparison of all 4 plots
+
+# svm_model
+
+svm_model
+# choose the best for svm_2 
+
+# best choice is weight = 3
+weights <- ifelse(train_data$hard_hit == "1", 3, 1)
+  
+svm_model_weighted <- train(
+    hard_hit ~ .,
+    data = train_data,
+    method = "svmRadial",
+    preProcess = c("center", "scale"),
+    tuneGrid = grid,
+    trControl = trainControl(method = "cv", number = 3),
+    weights = weights)
+
+# make the accuracy for svm_2
+pred_svm_weighted <- predict(svm_model_weighted, test_data)
+conf_mat_svm_weighted <- table(test_data$hard_hit, pred_svm_weighted)
+accuracy_svm_weighted <- sum(diag(conf_mat_svm_weighted)) / sum(conf_mat_svm_weighted)
+
+
+
+
+
+
+# knn_baseline
+
+knn_baseline
+
+# neighbors = 3
+knn_best <- train(
+  hard_hit ~ .,
+  data = train_data,
+  method = "knn",
+  preProcess = c("center", "scale"),
+  tuneGrid = expand.grid(k = 3),   # pick a reasonable default
+  trControl = trainControl(method = "none")
+)
+
+# accuracy for knn_best
+
+pred_knn_best <- predict(knn_best, test_data)
+conf_mat_knn_best <- table(test_data$hard_hit, pred_knn_best)
+accuracy_knn_best <- sum(diag(conf_mat_knn_best)) / sum(conf_mat_knn_best)
+
+
+# data frame of all 4 accuracies
+results <- data.frame(
+  Model = c("SVM Baseline", "SVM Weighted", "KNN Baseline", "KNN Best"),
+  Accuracy = c(svm_accuracy, accuracy_svm_weighted, accuracy_base, accuracy_knn_best)
+)
+
+# plot
+library(ggplot2)
+
+ggplot(results, aes(x = Model, y = Accuracy)) +
+  geom_bar(stat = "identity") +
+  ylim(0, 1) +
+  labs(title = "Model Accuracy Comparison",
+       y = "Accuracy",
+       x = "Model") +
+  theme_minimal()
+
+
+
+
+```
+```{r}
+# Table of all 4 conf_mat
+
+conf_matrices <- list(
+  "SVM Baseline"  = svm_confusion_matrix,
+  "SVM Weighted"  = conf_mat_svm_weighted,
+  "KNN Baseline"  = conf_mat_base,
+  "KNN Best"      = conf_mat_knn_best
+)
+
+conf_matrices
+
+library(dplyr)
+
+cm_to_df <- function(cm, model_name) {
+  df <- as.data.frame(cm)
+  colnames(df) <- c("Actual", "Predicted", "Freq")
+  df$Model <- model_name
+  return(df)
+}
+
+all_cm <- bind_rows(
+  cm_to_df(svm_confusion_matrix, "SVM Baseline"),
+  cm_to_df(conf_mat_svm_weighted, "SVM Weighted"),
+  cm_to_df(conf_mat_base, "KNN Baseline"),
+  cm_to_df(conf_mat_knn_best, "KNN Best")
+)
+
+all_cm
+
+library(ggplot2)
+
+
+ggplot(all_cm, aes(x = Predicted, y = Actual, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), color = "white") +
+  facet_wrap(~ Model) +
+  theme_minimal() +
+  labs(title = "Confusion Matrices Comparison",
+       x = "Predicted",
+       y = "Actual")
+```
+
